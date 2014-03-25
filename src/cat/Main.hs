@@ -2,7 +2,7 @@
 
 module Main where
 
-import           Control.Monad         (unless, (>=>))
+import           Control.Monad         (unless)
 import           Data.ByteString       (ByteString)
 import qualified Data.ByteString       as BS
 import qualified Data.ByteString.Char8 as C
@@ -50,12 +50,12 @@ nonBlankNumber n x  = (n + 1, BS.concat [formatNumber n, x, "\n"])
 
 -- | Reads standard in and writes it to standard out.
 catStdin :: IO ()
-catStdin = interact id
+catStdin = useLineBuffering >> interact id
 
 -- | Reads lines from standard in and prints them out after formatting
 -- them according to the given formatting function.
 catStdinFormatted :: Formatter -> IO ()
-catStdinFormatted f = catStdinFormatted' f 1
+catStdinFormatted f = useLineBuffering >> catStdinFormatted' f 1
 
 catStdinFormatted' :: Formatter -> LineNumber -> IO ()
 catStdinFormatted' f n =
@@ -68,12 +68,17 @@ catStdinFormatted' f n =
 
 -- | Reads a file and prints it to standard out.
 catFile :: FilePath -> IO ()
-catFile = readFile >=> putStr
+catFile p = useBlockBuffering
+            >>  readFile p
+            >>= putStr
 
 -- | Reads a file and prints it to standard out after formatting each
 -- line according to the given formatting function.
 catFileFormatted :: Formatter -> FilePath -> IO ()
-catFileFormatted f = BS.readFile >=> return . number f . C.split '\n' >=> BS.putStr
+catFileFormatted f p = useBlockBuffering
+                       >>  BS.readFile p
+                       >>= return . number f . C.split '\n'
+                       >>= BS.putStr
 
 cat :: [String] -> IO ()
 cat    []  = catStdin
@@ -91,5 +96,13 @@ cat (x:xs) = if length x >= 2 && head x == '-'
         formattedCat' f "-" = catStdinFormatted f
         formattedCat' f  p  = catFileFormatted f p
 
+-- | Sets the buffering mode of stdout to LineBuffering.
+useLineBuffering :: IO ()
+useLineBuffering = hSetBuffering stdout LineBuffering
+
+-- | Sets the buffering mode of stdout to BlockBuffering.
+useBlockBuffering :: IO ()
+useBlockBuffering = hSetBuffering stdout (BlockBuffering Nothing)
+
 main :: IO ()
-main = hSetBuffering stdout (BlockBuffering Nothing) >> getArgs >>= cat
+main = getArgs >>= cat
