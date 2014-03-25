@@ -2,7 +2,8 @@ module Main where
 
 import           Control.Monad      (unless, (>=>))
 import           System.Environment (getArgs)
-import           System.IO          (isEOF)
+import           System.IO          (BufferMode (..), hSetBuffering, isEOF,
+                                     stdout)
 import           Text.Printf        (printf)
 
 type LineNumber = Int
@@ -86,4 +87,4 @@ cat (x:xs) = if length x >= 2 && head x == '-'
         formattedCat' f  p  = catFileFormatted f p
 
 main :: IO ()
-main = getArgs >>= cat
+main = hSetBuffering stdout (BlockBuffering Nothing) >> getArgs >>= cat
