@@ -1,15 +1,20 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Main where
 
-import           Control.Monad      (unless, (>=>))
-import           System.Environment (getArgs)
-import           System.IO          (BufferMode (..), hSetBuffering, isEOF,
-                                     stdout)
-import           Text.Printf        (printf)
+import           Control.Monad         (unless, (>=>))
+import           Data.ByteString       (ByteString)
+import qualified Data.ByteString       as BS
+import qualified Data.ByteString.Char8 as C
+import           System.Environment    (getArgs)
+import           System.IO             (BufferMode (..), hSetBuffering, isEOF,
+                                        stdout)
+import           Text.Printf           (printf)
 
 type LineNumber = Int
-type Line = String
-type Lines = [Line]
-type Output = String
+type Line = ByteString
+type Lines = [ByteString]
+type Output = ByteString
 type Formatter = LineNumber -> Line -> (LineNumber, Line)
 
 -- | Given a formatting function and a list of lines, format each line
@@ -25,23 +30,23 @@ number' :: Formatter
         -> LineNumber
         -> Lines
         -> Output
-number' _ s _  []    = s
+number' _ s _    []  = s
 number' f s n (x:xs) = let (m, y) = f n x
-                       in number' f (s ++ y) m xs
+                       in number' f (BS.concat [s, y]) m xs
 
 -- | Turns an integer into a string that can be used to "number" a line.
-formatNumber :: Int -> String
-formatNumber = printf "%6d  "
+formatNumber :: Int -> ByteString
+formatNumber = C.pack . printf "%6d  "
 
 -- | A line number formatter that increments the counter on every line.
 standardNumber :: Formatter
-standardNumber n x = (n + 1, formatNumber n ++ x ++ "\n")
+standardNumber n x = (n + 1, BS.concat [formatNumber n, x, "\n"])
 
 -- | A line number formatter that only increments the counter on
 -- non-blank lines.
 nonBlankNumber :: Formatter
 nonBlankNumber n "" = (n, "\n")
-nonBlankNumber n x  = (n + 1, formatNumber n ++ x ++ "\n")
+nonBlankNumber n x  = (n + 1, BS.concat [formatNumber n, x, "\n"])
 
 -- | Reads standard in and writes it to standard out.
 catStdin :: IO ()
@@ -56,9 +61,9 @@ catStdinFormatted' :: Formatter -> LineNumber -> IO ()
 catStdinFormatted' f n =
   do done <- isEOF
      unless done $
-       do x <- getLine
+       do x <- BS.getLine
           let (m, y) = f n x
-          putStr y
+          BS.putStr y
           catStdinFormatted' f m
 
 -- | Reads a file and prints it to standard out.
@@ -68,7 +73,7 @@ catFile = readFile >=> putStr
 -- | Reads a file and prints it to standard out after formatting each
 -- line according to the given formatting function.
 catFileFormatted :: Formatter -> FilePath -> IO ()
-catFileFormatted f = readFile >=> return . number f . lines >=> putStr
+catFileFormatted f = BS.readFile >=> return . number f . C.split '\n' >=> BS.putStr
 
 cat :: [String] -> IO ()
 cat    []  = catStdin

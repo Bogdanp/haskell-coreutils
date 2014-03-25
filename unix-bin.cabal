@@ -58,6 +58,7 @@ executable cat
   
   -- Other library packages from which modules are imported.
   build-depends:       base >=4.6 && <4.7
+                     , bytestring ==0.10.*
   
   -- Directories containing source files.
   hs-source-dirs:      src/cat
